@@ -75,7 +75,25 @@ class DeterministicLo(nn.Module):
         '''
         raise NotImplementedError()
 
+# __init__(self, env, cfg: DictConfig): The constructor of the class that takes in the environment and a configuration dictionary as arguments. It prepares all the necessary variables, configurations, and spaces based on the input configuration. It also sets up goal spaces and task maps.
 
+# parse_lo_info(cfg): This static method loads low-level information from a provided configuration. It returns subsets and task maps.
+
+# action_mask_hi(self): This method generates a mask for high-level actions based on subsets of features in the goal space.
+
+# gs_obs(self, obs): This method returns the goal space observations from the overall observations.
+
+# translate(self, gs_obs, task, subgoal, delta_gs_obs=None): This method translates the goal space observations, task and subgoal into the low-level policy's action space.
+
+# update_bp_subgoal(self, gs_obs, next_gs_obs, action_hi): This method updates the backprojected subgoal based on the current and next goal space observations, and the high-level action.
+
+# observation_lo(self, o_obs, action_hi): This method constructs a low-level observation from the overall observation and the high-level action.
+
+# dist_lo(self, gs_obs, task, subgoal): This method calculates the distance between the projected current state and the subgoal in the low-level policy's action space.
+
+# reward_lo(self, gs_obs, next_gs_obs, task, subgoal): This method calculates a potential-based reward for the low-level policy.
+
+# log_goal_spaces(self): This method logs the information about the goal spaces.
 class HiToLoInterface:
     '''
     This describes the interface between the high- and low-level sub-agents used
@@ -415,6 +433,31 @@ class HSD3Agent(Agent):
     - Dense high-level updates as in DynE
     '''
 
+    import gym
+import torch.nn as nn
+import torch as th
+from types import SimpleNamespace
+from omegaconf import DictConfig
+from copy import deepcopy
+import hydra
+import numpy as np
+import logging as log
+
+from YOUR_MODULE_PATH import HiToLoInterface, ReplayBuffer, DeterministicLo, TracedModule
+
+
+class HSD3Agent(nn.Module):
+    """
+    Your task is to implement a Hierarchical Soft-Actor Critic with Discrete and Continuous actions (HSD3Agent)
+    in Reinforcement Learning. The HSD3Agent class in this file has been started for you, but you will need
+    to fill in the missing parts marked with `# TODO`.
+
+    The HSD3Agent uses an interface between high-level and low-level sub-agents, likely within a 
+    Hierarchical Reinforcement Learning (HRL) context. HRL is a type of reinforcement learning architecture 
+    that allows for learning and decision-making at various levels of abstraction. It typically involves 
+    high-level policies (or sub-agents) making more abstract, strategic decisions, and low-level policies 
+    carrying out the specific actions to achieve those strategic goals.
+    """
     def __init__(
         self,
         env: gym.Env,
@@ -422,349 +465,104 @@ class HSD3Agent(Agent):
         optim: SimpleNamespace,
         cfg: DictConfig,
     ):
+        """
+        The __init__ method initializes the HSD3Agent class.
+        
+        The parameters are:
+            env: An instance of an OpenAI gym environment.
+            model: The model that the agent will use for decision making.
+            optim: A namespace that contains the optimizer that the model will use for learning.
+            cfg: Configuration parameters that the agent needs to properly initialize.
+            
+        Your task: Fill in the code for the initialization. Pay attention to the TODO comments.
+        """
         super().__init__(cfg)
-        if not hasattr(model, 'hi'):
-            raise ValueError('Model needs "hi" module')
-        if not hasattr(model, 'lo'):
-            raise ValueError('Model needs "lo" module')
-        if not hasattr(model.hi, 'pi_subgoal'):
-            raise ValueError('Model needs "hi.pi_subgoal" module')
-        if not hasattr(model.hi, 'pi_task'):
-            raise ValueError('Model needs "hi.pi_task" module')
-        if not hasattr(model.hi, 'q'):
-            raise ValueError('Model needs "hi.q" module')
-        if not hasattr(model.lo, 'pi'):
-            raise ValueError('Model needs "lo.pi" module')
-        if not isinstance(env.action_space, gym.spaces.Box):
-            raise ValueError(
-                f'HSD3Agent requires a continuous (Box) action space (but got {type(env.action_space)})'
-            )
-        if not isinstance(env.observation_space, gym.spaces.Dict):
-            raise ValueError(
-                f'HSD3Agent requires a dictionary observation space (but got {type(env.observation_space_space)})'
-            )
-        if not 'time' in env.observation_space.spaces:
-            raise ValueError(f'HSD3Agent requires a "time" observation')
-        if not 'observation' in env.observation_space.spaces:
-            raise ValueError(f'HSD3Agent requires a "observation" observation')
-        if not cfg.goal_space.key in env.observation_space.spaces:
-            raise ValueError(
-                f'HSD3Agent requires a "{cfg.goal_space.key}" observation'
-            )
 
-        self._iface = HiToLoInterface(env, cfg)
-        self._iface.log_goal_spaces()
-        self._ckey = 'subgoal'
-        self._action_space_c = self._iface.action_space_hi[self._ckey]
-        self._dkey = 'task'
-        self._action_space_d = self._iface.action_space_hi[self._dkey]
+        # TODO: Check if the model has the necessary modules. If not, raise a ValueError.
+        # Here are the modules you need to check for:
+        # 1. 'hi'
+        # 2. 'lo'
+        # 3. 'hi.pi_subgoal'
+        # 4. 'hi.pi_task'
+        # 5. 'hi.q'
+        # 6. 'lo.pi'
 
-        self._model = model
-        self._model_pi_c = model.hi.pi_subgoal
-        self._model_pi_d = model.hi.pi_task
-        self._optim_pi_c = optim.hi.pi_subgoal
-        self._optim_pi_d = optim.hi.pi_task
-        self._optim = optim
-        self._bsz = int(cfg.batch_size)
-        self._gamma = float(cfg.gamma)
-        self._polyak = float(cfg.polyak)
-        self._rpbuf_size = int(cfg.rpbuf_size)
-        self._samples_per_update = int(cfg.samples_per_update)
-        self._num_updates = int(cfg.num_updates)
-        self._warmup_samples = int(cfg.warmup_samples)
-        self._randexp_samples = int(cfg.randexp_samples)
-        self._clip_grad_norm = float(cfg.clip_grad_norm)
-        self._action_interval = int(cfg.action_interval)
-        expectation_d = str(cfg.expectation_d)
-        if expectation_d == 'full':
-            self._expectation_d = -1
-        elif expectation_d == 'False':
-            self._expectation_d = 1
-        else:
-            self._expectation_d = int(expectation_d)
+        # TODO: Check if the environment's action_space is of type gym.spaces.Box, if not, raise a ValueError.
 
-        self._dyne_updates = bool(cfg.dyne_updates)
+        # TODO: Check if the environment's observation_space is of type gym.spaces.Dict, if not, raise a ValueError.
 
-        self._action_c_mask = self._iface.action_mask_hi().unsqueeze(0).float()
-        self._target_entropy_factor_c = cfg.target_entropy_factor_c
-        self._target_entropy_c = -1 * self._target_entropy_factor_c
-        log_alpha_c = [
-            np.log(cfg.alpha_c) for _ in range(self._action_c_mask.shape[1])
-        ]
-        if cfg.optim_alpha_c is None:
-            self._log_alpha_c = th.tensor(
-                log_alpha_c, device=cfg.device, dtype=th.float32
-            )
-        else:
-            self._log_alpha_c = th.tensor(
-                log_alpha_c,
-                device=cfg.device,
-                dtype=th.float32,
-                requires_grad=True,
-            )
-            self._optim_alpha_c = hydra.utils.instantiate(
-                cfg.optim_alpha_c, [self._log_alpha_c]
-            )
+        # TODO: Check if the observation_space of the environment has the following keys: 'time', 'observation', 
+        # and the key from cfg.goal_space.key. If not, raise a ValueError for each missing key.
 
-        self._target_entropy_d = (
-            np.log(self._action_space_d.n) * cfg.target_entropy_factor_d
-        )
-        self._uniform_entropy_d = np.log(self._action_space_d.n)
-        log_alpha_d = np.log(cfg.alpha_d)
-        if cfg.optim_alpha_d is None:
-            self._log_alpha_d = th.tensor(log_alpha_d)
-            self._optim_alpha_d = None
-        else:
-            self._log_alpha_d = th.tensor(log_alpha_d, requires_grad=True)
-            self._optim_alpha_d = hydra.utils.instantiate(
-                cfg.optim_alpha_d, [self._log_alpha_d]
-            )
+        # TODO: Initialize the HiToLoInterface with the environment and the configuration, 
+        # and call the log_goal_spaces method.
 
-        log.info(
-            f'Initializing low-level model from checkpoint {cfg.lo.init_from}'
-        )
-        with open(cfg.lo.init_from, 'rb') as fd:
-            data = th.load(fd, map_location=th.device(cfg.device))
-            if '_model' in data:  # Checkpoint
-                missing_keys, _ = self._model.lo.load_state_dict(
-                    data['_model'], strict=False
-                )
-            else:  # Raw model weights
-                missing_keys, _ = self._model.lo.load_state_dict(
-                    data, strict=False
-                )
-            if len(missing_keys) > 0:
-                raise ValueError(f'Missing keys in model: {missing_keys}')
+        # TODO: Initialize the action spaces for the subgoal ('subgoal') and task ('task').
 
-        rpbuf_device = cfg.rpbuf_device if cfg.rpbuf_device != 'auto' else None
-        self._buffer = ReplayBuffer(
-            size=self._rpbuf_size, interleave=env.num_envs, device=rpbuf_device
-        )
-        self._staging = ReplayBuffer(
-            size=max(2, self._action_interval) * env.num_envs,
-            interleave=env.num_envs,
-            device=rpbuf_device,
-        )
-        self._n_samples_since_update = 0
-        self._cur_rewards: List[th.Tensor] = []
-        self._d_batchin = None
-        self._onehots = None
+        # TODO: Initialize the model for the high-level policy for subgoal and task, 
+        # and their respective optimizers.
 
-        self._target = deepcopy(model)
-        # We'll never need gradients for the target network
-        for param in self._target.parameters():
-            param.requires_grad_(False)
+        # TODO: Initialize other necessary parameters such as batch_size, gamma, polyak, rpbuf_size, 
+        # samples_per_update, num_updates, warmup_samples, randexp_samples, clip_grad_norm, action_interval
 
-        self._action_space_lo = env.action_space
-        self._action_factor_lo = env.action_space.high[0]
-        self._action_factor_c = self._action_space_c.high[0]
-        self._obs_space = self._iface.observation_space_hi
-        self._obs_keys = list(self._obs_space.spaces.keys())
+    # Alright students, let's keep going! Now we'll be working on more static methods and agent action functions. 
 
-        self._q_hi = self._model.hi.q
-        self._pi_lo_det = DeterministicLo(self._model.lo.pi)
-        if cfg.trace:
-            self._q_hi = TracedModule(self._q_hi)
-            self._pi_lo_det = TracedModule(self._pi_lo_det)
 
-        self.set_checkpoint_attr(
-            '_model',
-            '_target',
-            '_optim',
-            '_log_alpha_c',
-            '_optim_alpha_c',
-            '_log_alpha_d',
-            '_optim_alpha_d',
-        )
-
+    # TODO: Define a static method `effective_observation_space` which takes two parameters, `env` and `cfg`.
+    # The purpose of this function is to return the effective observation spaces for both hi and lo levels.
     @staticmethod
-    def effective_observation_space(env: gym.Env, cfg: DictConfig):
-        iface = HiToLoInterface(env, cfg)
-        return {
-            'lo': iface.observation_space_lo,
-            'hi': {
-                'pi_task': iface.observation_space_hi,
-                'pi_subgoal': gym.spaces.Dict(
-                    task=iface.action_space_hi.spaces['task'],
-                    **iface.observation_space_hi.spaces,
-                ),
-                'q': iface.observation_space_hi,
-            },
-        }
+    def effective_observation_space(env: gym.Env, cfg: DictConfig):  # Don't forget to import necessary libraries!
+        # TODO: Instantiate a HiToLoInterface with `env` and `cfg`, assign it to `iface`.
 
+        # TODO: Return a dictionary contains 'lo' and 'hi' keys.
+        # For 'lo' key, it should return `iface.observation_space_lo`.
+        # For 'hi' key, it should be a dictionary contains 'pi_task', 'pi_subgoal', 'q' keys, 
+        # with corresponding values to be filled according to the context of this function.
+        pass
+
+    # TODO: Similar to the previous function, define a static method `effective_action_space` which takes two parameters, `env` and `cfg`.
+    # This function should return the effective action spaces for both hi and lo levels.
     @staticmethod
     def effective_action_space(env: gym.Env, cfg: DictConfig):
-        iface = HiToLoInterface(env, cfg)
-        return {
-            'lo': env.action_space,
-            'hi': {
-                'pi_task': iface.action_space_hi['task'],
-                'pi_subgoal': iface.action_space_hi['subgoal'],
-                'q': iface.action_space_hi,
-            },
-        }
+        # TODO: Complete this function.
+        pass
 
+    # TODO: Define a function `action_hi_d_qinput`, it takes one parameter `action_d` and should return a tensor.
     def action_hi_d_qinput(self, action_d: th.Tensor) -> th.Tensor:
-        nd = self._action_space_d.n
-        return self._onehots.index_select(0, action_d.view(-1))
+        # TODO: Compute and return the result tensor.
+        pass
 
+    # TODO: Now we will create action functions for hi and lo levels, and an overall action function.
+    # Start with `action_hi_rand`, it takes two parameters `env` and `time`, and should return a dictionary.
     def action_hi_rand(self, env, time):
-        actions = [
-            self._iface.action_space_hi.sample() for _ in range(env.num_envs)
-        ]
-        device = list(self._model.parameters())[0].device
-        action_d = th.tensor(
-            [a[self._dkey] for a in actions], dtype=th.int64, device=device
-        )
-        action_c = th.tensor(
-            np.stack([a['subgoal'] for a in actions]), device=device
-        )
-        if self._action_c_mask is not None:
-            mask = self._action_c_mask.index_select(1, action_d).squeeze(0)
-            action_c = action_c * mask
-        return {self._dkey: action_d, self._ckey: action_c}
+        # TODO: Complete this function.
+        pass
 
+    # TODO: Define another action function for hi level named `action_hi_cd`, it takes two parameters `env` and `obs`.
     def action_hi_cd(self, env, obs):
-        time = obs['time']
-        obs_hi = self._iface.observation_hi(obs)
-        obs_hi['time'] = th.zeros_like(obs_hi['time'])
-        dist_d = self._model_pi_d(obs_hi)
-        if self.training:
-            dist_d = D.Categorical(logits=dist_d.logits)
-            action_d = dist_d.sample()
-        else:
-            action_d = dist_d.logits.argmax(dim=1)
+        # TODO: Complete this function.
+        pass
 
-        subgoal_obs_hi = copy(obs_hi)
-        nd = self._action_space_d.n
-        subgoal_obs_hi[self._dkey] = (
-            F.one_hot(action_d, nd).float().view(-1, nd)
-        )
-        dist_c = self._model_pi_c(subgoal_obs_hi)
-        if self.training:
-            action_c = dist_c.sample()
-        else:
-            action_c = dist_c.mean
-        action_c = action_c * self._action_factor_c
-
-        assert action_c.ndim == 3, 'Subgoal policy not multihead?'
-        if self._action_c_mask is not None:
-            action_c = action_c * self._action_c_mask
-        action_c = dim_select(action_c, 1, action_d)
-
-        return {self._dkey: action_d, self._ckey: action_c}
-
+    # TODO: Now define a function `action_hi` to select the high-level action. 
+    # This function takes three parameters: `env`, `obs`, and `prev_action`.
     def action_hi(self, env, obs, prev_action):
-        if self._n_samples < self._randexp_samples and self.training:
-            action = self.action_hi_rand(env, obs['time'])
-        else:
-            action = self.action_hi_cd(env, obs)
-        return action
+        # TODO: Complete this function.
+        pass
 
+    # TODO: Define a function `action_lo` to select the low-level action, it takes two parameters: `env` and `obs`.
     def action_lo(self, env, obs):
-        action = self._pi_lo_det(obs)
-        action = action * self._action_factor_lo
-        return action
+        # TODO: Complete this function.
+        pass
 
+    # TODO: Finally, define a function `action` to select the overall action.
+    # This function takes two parameters: `env` and `obs`, and should return a tuple.
     def action(self, env, obs) -> Tuple[th.Tensor, Any]:
-        step = obs['time'].remainder(self._action_interval).long().view(-1)
-        keep_action_hi = step != 0
+        # TODO: Complete this function.
+        pass
 
-        def retain(x, y, mask):
-            return mask * x + th.logical_not(mask) * y
-
-        prev_gs_obs = env.ctx.get('gs_obs', None)
-        action_hi = env.ctx.get('action_hi', None)
-        obs_hi = copy(obs)
-
-        tr_action_hi = env.ctx.get('tr_action_hi', None)
-        if action_hi is None or not keep_action_hi.all().item():
-            with th.no_grad():
-                new_action_hi = self.action_hi(env, obs_hi, action_hi)
-            tr_new_action_hi = self._iface.translate(
-                self._iface.gs_obs(obs),
-                new_action_hi[self._dkey],
-                new_action_hi[self._ckey],
-            )
-            if action_hi is None:
-                action_hi = deepcopy(new_action_hi)
-                tr_action_hi = deepcopy(tr_new_action_hi)
-            else:
-                c = self._ckey
-                d = self._dkey
-                # Replace raw actions
-                action_hi[d] = retain(
-                    action_hi[d], new_action_hi[d], keep_action_hi
-                )
-                action_hi[c] = retain(
-                    action_hi[c],
-                    new_action_hi[c],
-                    keep_action_hi.unsqueeze(1).expand_as(action_hi[c]),
-                )
-                # Replace translated actions
-                tr_action_hi['task'] = retain(
-                    tr_action_hi['task'],
-                    tr_new_action_hi['task'],
-                    keep_action_hi.unsqueeze(1).expand_as(tr_action_hi['task']),
-                )
-                tr_action_hi['desired_goal'] = self._iface.update_bp_subgoal(
-                    prev_gs_obs, self._iface.gs_obs(obs), tr_action_hi
-                )
-                tr_action_hi['desired_goal'] = retain(
-                    tr_action_hi['desired_goal'],
-                    tr_new_action_hi['desired_goal'],
-                    keep_action_hi.unsqueeze(1).expand_as(
-                        tr_action_hi['desired_goal']
-                    ),
-                )
-        else:
-            tr_action_hi['desired_goal'] = self._iface.update_bp_subgoal(
-                prev_gs_obs, self._iface.gs_obs(obs), tr_action_hi
-            )
-
-        env.ctx['action_hi'] = action_hi
-        env.ctx['tr_action_hi'] = tr_action_hi
-        if not 'gs_obs' in env.ctx:
-            env.ctx['gs_obs'] = self._iface.gs_obs(obs).clone()
-        else:
-            env.ctx['gs_obs'].copy_(self._iface.gs_obs(obs))
-
-        with th.no_grad():
-            obs_lo = self._iface.observation_lo(
-                obs['observation'], tr_action_hi
-            )
-            action_lo = self.action_lo(env, obs_lo)
-
-        if self.training:
-            return action_lo, {
-                'action_hi': action_hi,
-                'tr_action_hi': tr_action_hi,
-                #'gs_obs0': env.ctx['gs_obs0'],
-                'obs_hi': obs_hi,
-            }
-
-        # Additional visualization info for evals
-        subsets = [
-            self._iface.subsets[i.item()] for i in action_hi['task'].cpu()
-        ]
-        sg_cpu = action_hi['subgoal'].cpu().numpy()
-        sgd_cpu = tr_action_hi['desired_goal'].cpu().numpy()
-        subgoals = []
-        subgoals_d = []
-        for i in range(env.num_envs):
-            n = len(subsets[i].split(','))
-            subgoals.append(sg_cpu[i, :n])
-            feats = [self._iface.task_map[f] for f in subsets[i].split(',')]
-            subgoals_d.append(sgd_cpu[i, feats])
-        return action_lo, {
-            'action_hi': action_hi,
-            'tr_action_hi': tr_action_hi,
-            'obs_hi': obs_hi,
-            'st': subsets,
-            'sg': subgoals,
-            'sgd': subgoals_d,
-            'viz': ['st', 'sg', 'sgd'],
-        }
+# Congratulations! You have completed the transformation of the real-world code into your homework. 
+# Please try to understand the code and complete the TODOs according to the comments and your understanding.
+# Don't forget to test your code after completion. Good luck!
 
     def step(
         self,
@@ -774,6 +572,12 @@ class HSD3Agent(Agent):
         extra: Any,
         result: Tuple[th.Tensor, th.Tensor, th.Tensor, List[Dict]],
     ) -> None:
+        """
+        This function collects data from the environment by stepping through it with the provided action.
+        The observed states, actions, and rewards are then stored in a staging buffer. If the staging buffer
+        reaches its maximum capacity, the data is transferred to the main buffer. Moreover, if a certain number
+        of steps have been taken, the agent's policy is updated using the collected data.
+        """
         next_obs, reward, done, info = result
         action_hi = extra['action_hi']
         tr_action_hi = extra['tr_action_hi']
@@ -818,6 +622,12 @@ class HSD3Agent(Agent):
             self._n_samples_since_update = 0
 
     def _staging_to_buffer(self):
+        """
+        This function moves data from the staging buffer to the main buffer. It also pre-processes the data to be
+        suitable for training. This includes stacking several transitions together, calculating the next high-level
+        action to take, summing up discounted rewards, and creating a dictionary containing the current and next
+        state, the summed reward, and whether the episode ended or not. This dictionary is then put into the main buffer.
+        """
         ilv = self._staging.interleave
         buf = self._staging
         assert buf._b is not None
@@ -888,58 +698,62 @@ class HSD3Agent(Agent):
 
         self._buffer.put_row(db)
 
+    # The '_update' function is used to update the parameters of the models being trained.
     def _update(self):
+        # Nested function that returns the action and its log probability given an observation and mask.
         def act_logp_c(obs, mask):
+            # Pass the observations through the policy model to get a distribution over actions.
             dist = self._model_pi_c(obs)
+            # Sample an action from the distribution.
             action = dist.rsample()
+            # If mask is not None, apply it to the action and its log probability.
             if mask is not None:
-                log_prob = (dist.log_prob(action) * mask).sum(
-                    dim=-1
-                ) / mask.sum(dim=-1)
+                log_prob = (dist.log_prob(action) * mask).sum(dim=-1) / mask.sum(dim=-1)
                 action = action * mask * self._action_factor_c
             else:
                 log_prob = dist.log_prob(action).sum(dim=-1)
                 action = action * self._action_factor_c
             return action, log_prob
 
+        # Nested function that calculates the target value for the Q function.
         def q_target(batch):
             reward = batch['reward']
             not_done = batch['not_done']
+            # Extract the observations from the batch.
             obs_p = {k: batch[f'next_obs_{k}'] for k in self._obs_keys}
+            # The temperatures for the two entropy terms in the objective.
             alpha_c = self._log_alpha_c.detach().exp()
             alpha_d = self._log_alpha_d.detach().exp()
             bsz = reward.shape[0]
             d_batchin = self._d_batchin.narrow(0, 0, bsz * nd)
             c_batchmask = self._c_batchmask.narrow(0, 0, bsz * nd)
 
+            # Distribution over discrete actions.
             dist_d = self._model_pi_d(obs_p)
+            # Continuous action and its log probability.
             action_c, log_prob_c = act_logp_c(obs_p, self._action_c_mask)
 
+            # If the expected number of discrete actions is -1 and there is more than one discrete action.
             if self._expectation_d == -1 and nd > 1:
-                # Present interleaved observation so that we can easily
-                # reshape the result into BxA1xA2.
-                obs_pe = {}
-                for k, v in obs_p.items():
-                    obs_pe[k] = v.repeat_interleave(nd, dim=0)
+                # Modify the observations to include the continuous and discrete actions.
+                obs_pe = {k: v.repeat_interleave(nd, dim=0) for k, v in obs_p.items()}
                 obs_pe[self._dkey] = d_batchin
                 obs_pe[self._ckey] = action_c.view(d_batchin.shape[0], -1)
+                # The target Q value is the minimum over the two Q functions.
                 q_t = th.min(self._target.hi.q(obs_pe), dim=-1).values
 
                 q_t = q_t.view(bsz, nd)
                 log_prob_c = log_prob_c.view(bsz, nd)
-                v_est = (dist_d.probs * (q_t - log_prob_c * alpha_c)).sum(
-                    dim=-1
-                ) + alpha_d * (dist_d.entropy() - self._uniform_entropy_d)
+                # The estimate of the state value function.
+                v_est = (dist_d.probs * (q_t - log_prob_c * alpha_c)).sum(dim=-1) + alpha_d * (dist_d.entropy() - self._uniform_entropy_d)
             else:
+                # Sample actions from the discrete action distribution.
                 action_d = th.multinomial(dist_d.probs, nds, replacement=True)
+                # Get the log probability of the sampled actions.
                 log_prob_d = dist_d.logits.gather(1, action_d)
 
-                obs_pe = {}
-                for k, v in obs_p.items():
-                    if nds > 1:
-                        obs_pe[k] = v.repeat_interleave(nds, dim=0)
-                    else:
-                        obs_pe[k] = v
+                # Modify the observations to include the continuous and discrete actions.
+                obs_pe = {k: v.repeat_interleave(nds, dim=0) if nds > 1 else v for k, v in obs_p.items()}
                 obs_pe[self._dkey] = self.action_hi_d_qinput(action_d).view(
                     -1, nd
                 )
@@ -954,280 +768,146 @@ class HSD3Agent(Agent):
                     -1, nds
                 )
                 log_prob_c = log_prob_c.view(-1, nds)
+                # Initialize a mask for action_c if it's None
                 if self._action_c_mask is not None:
-                    ac = alpha_c.index_select(0, action_d.view(-1)).view_as(
-                        log_prob_c
+                    self._c_batchmask = self._action_c_mask.index_select(
+                        1, th.arange(bsz * nd, device=mdevice).remainder(nd)
+                    ).squeeze(0)
+                else:
+                    self._c_batchmask = None
+
+                # If the dyne updates flag is not set, assert that the buffer is either empty or full
+                if not self._dyne_updates:
+                    assert (
+                        self._buffer.start == 0 or self._buffer.size == self._buffer.max
                     )
-                else:
-                    ac = alpha_c
-                v_est = (q_t - ac * log_prob_c - alpha_d * log_prob_d).mean(
-                    dim=-1
-                )
+                    # Get indices where observation time is 0
+                    indices = th.where(
+                        self._buffer._b['obs_time'][: self._buffer.size] == 0
+                    )[0]
 
-            return reward + batch['gamma_exp'] * not_done * v_est
-
-        for p in self._model.parameters():
-            mdevice = p.device
-            break
-        bsz = self._bsz
-        nd = self._action_space_d.n
-        nds = self._expectation_d
-        if nd == 1:
-            nds = 1
-        if self._d_batchin is None:
-            self._onehots = F.one_hot(th.arange(nd), nd).float().to(mdevice)
-            self._d_batchin = self.action_hi_d_qinput(
-                th.arange(bsz * nd).remainder(nd).to(mdevice)
-            )
-            if self._action_c_mask is not None:
-                self._c_batchmask = self._action_c_mask.index_select(
-                    1, th.arange(bsz * nd, device=mdevice).remainder(nd)
-                ).squeeze(0)
-            else:
-                self._c_batchmask = None
-
-        if not self._dyne_updates:
-            assert (
-                self._buffer.start == 0 or self._buffer.size == self._buffer.max
-            )
-            indices = th.where(
-                self._buffer._b['obs_time'][: self._buffer.size] == 0
-            )[0]
-        gbatch = None
-        if self._dyne_updates and self._bsz < 512:
-            gbatch = self._buffer.get_batch(
-                self._bsz * self._num_updates,
-                device=mdevice,
-            )
-
-        for i in range(self._num_updates):
-            if self._dyne_updates:
-                if gbatch is not None:
-                    batch = {
-                        k: v.narrow(0, i * self._bsz, self._bsz)
-                        for k, v in gbatch.items()
-                    }
-                else:
-                    batch = self._buffer.get_batch(
-                        self._bsz,
+                gbatch = None
+                # If dyne updates is enabled and batch size is less than 512, get a batch from the buffer
+                if self._dyne_updates and self._bsz < 512:
+                    gbatch = self._buffer.get_batch(
+                        self._bsz * self._num_updates,
                         device=mdevice,
                     )
-            else:
-                batch = self._buffer.get_batch_where(
-                    self._bsz, indices=indices, device=mdevice
-                )
 
-            obs = {k: batch[f'obs_{k}'] for k in self._obs_keys}
-            alpha_c = self._log_alpha_c.detach().exp()
-            alpha_d = self._log_alpha_d.detach().exp()
-
-            # Backup for Q-Function
-            with th.no_grad():
-                backup = q_target(batch)
-
-            # Q-Function update
-            q_in = copy(obs)
-            q_in[self._dkey] = self.action_hi_d_qinput(
-                batch[f'action_hi_{self._dkey}']
-            )
-            q_in[self._ckey] = batch[f'action_hi_{self._ckey}']
-            q = self._q_hi(q_in)
-            q1 = q[:, 0]
-            q2 = q[:, 1]
-            q1_loss = F.mse_loss(q1, backup, reduction='none')
-            q2_loss = F.mse_loss(q2, backup, reduction='none')
-            q_loss = q1_loss.mean() + q2_loss.mean()
-            self._optim.hi.q.zero_grad()
-            q_loss.backward()
-            if self._clip_grad_norm > 0.0:
-                nn.utils.clip_grad_norm_(
-                    self._model.q.parameters(), self._clip_grad_norm
-                )
-            self._optim.hi.q.step()
-
-            # Policy update
-            for param in self._model.hi.q.parameters():
-                param.requires_grad_(False)
-
-            # No time input for policy, and Q-functions are queried as if step
-            # would be 0 (i.e. we would take an action)
-            obs['time'] = obs['time'] * 0
-            dist_d = self._model_pi_d(obs)
-            action_c, log_prob_c = act_logp_c(obs, self._action_c_mask)
-
-            if self._expectation_d == -1 and nd > 1:
-                obs_e = {}
-                for k, v in obs.items():
-                    obs_e[k] = v.repeat_interleave(nd, dim=0)
-                obs_e[self._dkey] = self._d_batchin
-                obs_e[self._ckey] = action_c.view(self._d_batchin.shape[0], -1)
-                q = th.min(self._q_hi(obs_e), dim=-1).values
-
-                q = q.view(bsz, nd)
-                log_prob_c = log_prob_c.view(bsz, nd)
-                pi_loss = (dist_d.probs * (alpha_c * log_prob_c - q)).sum(
-                    dim=-1
-                ) - alpha_d * (dist_d.entropy() - self._uniform_entropy_d)
-            else:
-                action_d = th.multinomial(dist_d.probs, nds, replacement=True)
-                log_prob_d = dist_d.logits.gather(1, action_d)
-
-                obs_e = {}
-                for k, v in obs.items():
-                    if nds > 1:
-                        obs_e[k] = v.repeat_interleave(nds, dim=0)
+                # Start updates
+                for i in range(self._num_updates):
+                    # If dyne updates are enabled, handle the batch accordingly
+                    if self._dyne_updates:
+                        if gbatch is not None:
+                            batch = {
+                                k: v.narrow(0, i * self._bsz, self._bsz)
+                                for k, v in gbatch.items()
+                            }
+                        else:
+                            batch = self._buffer.get_batch(
+                                self._bsz,
+                                device=mdevice,
+                            )
                     else:
-                        obs_e[k] = v
-                obs_e[self._dkey] = self.action_hi_d_qinput(action_d).view(
-                    -1, nd
-                )
-
-                action_c = dim_select(action_c, 1, action_d).view(
-                    -1, action_c.shape[-1]
-                )
-                log_prob_co = log_prob_c
-                log_prob_c = log_prob_c.gather(1, action_d)
-                obs_e[self._ckey] = action_c
-
-                q = th.min(self._q_hi(obs_e), dim=-1).values.view(-1, nds)
-                log_prob_c = log_prob_c.view(-1, nds)
-                if self._action_c_mask is not None:
-                    ac = alpha_c.index_select(0, action_d.view(-1)).view_as(
-                        log_prob_c
-                    )
-                else:
-                    ac = alpha_c
-                pi_loss = (ac * log_prob_c + alpha_d * log_prob_d - q).mean(
-                    dim=-1
-                )
-
-            pi_loss = pi_loss.mean()
-            self._optim_pi_c.zero_grad()
-            self._optim_pi_d.zero_grad()
-            pi_loss.backward()
-            if self._clip_grad_norm > 0.0:
-                nn.utils.clip_grad_norm_(
-                    self._model_pi_c.parameters(), self._clip_grad_norm
-                )
-                nn.utils.clip_grad_norm_(
-                    self._model_pi_d.parameters(), self._clip_grad_norm
-                )
-            self._optim_pi_c.step()
-            self._optim_pi_d.step()
-
-            for param in self._model.hi.q.parameters():
-                param.requires_grad_(True)
-
-            # Optional temperature update
-            if self._optim_alpha_c:
-                if self._expectation_d != -1:
-                    alpha_loss_c = (
-                        -(
-                            self._log_alpha_c.exp()
-                            * dist_d.probs.detach()
-                            * (
-                                log_prob_co.detach() + self._target_entropy_c
-                            ).view(bsz, nd)
+                        # Get batch where indices are as defined before
+                        batch = self._buffer.get_batch_where(
+                            self._bsz, indices=indices, device=mdevice
                         )
-                        .sum(dim=-1)
-                        .mean()
+
+                    # Get observations from the batch
+                    obs = {k: batch[f'obs_{k}'] for k in self._obs_keys}
+                    # Calculate the exponential of alpha_c and alpha_d
+                    alpha_c = self._log_alpha_c.detach().exp()
+                    alpha_d = self._log_alpha_d.detach().exp()
+
+                    # Backup for Q-Function
+                    # Q-function target is calculated with no gradient tracking
+                    with th.no_grad():
+                        backup = q_target(batch)
+
+                    # Q-Function update
+                    # Prepare inputs for Q-function
+                    q_in = copy(obs)
+                    q_in[self._dkey] = self.action_hi_d_qinput(
+                        batch[f'action_hi_{self._dkey}']
                     )
-                else:
-                    alpha_loss_c = (
-                        -(
-                            self._log_alpha_c.exp()
-                            * dist_d.probs.detach()
-                            * (
-                                log_prob_c.detach() + self._target_entropy_c
-                            ).view(bsz, nd)
+                    q_in[self._ckey] = batch[f'action_hi_{self._ckey}']
+                    q = self._q_hi(q_in)
+                    q1 = q[:, 0]
+                    q2 = q[:, 1]
+                    # Compute the MSE loss for both Q1 and Q2
+                    q1_loss = F.mse_loss(q1, backup, reduction='none')
+                    q2_loss = F.mse_loss(q2, backup, reduction='none')
+                    q_loss = q1_loss.mean() + q2_loss.mean()
+                    # Zero out the gradients of the Q-function optimizer
+                    self._optim.hi.q.zero_grad()
+                    # Backpropagate the Q-function loss
+                    q_loss.backward()
+                    # If gradient clipping is used, apply it before the optimization step
+                    if self._clip_grad_norm > 0.0:
+                        nn.utils.clip_grad_norm_(
+                            self._model.q.parameters(), self._clip_grad_norm
                         )
-                        .sum(dim=-1)
-                        .mean()
-                    )
-                self._optim_alpha_c.zero_grad()
-                alpha_loss_c.backward()
-                self._optim_alpha_c.step()
-            if self._optim_alpha_d:
-                alpha_loss_d = (
-                    self._log_alpha_d.exp()
-                    * (
-                        dist_d.entropy().mean().cpu() - self._target_entropy_d
-                    ).detach()
-                )
-                self._optim_alpha_d.zero_grad()
-                alpha_loss_d.backward()
-                self._optim_alpha_d.step()
+                    # Optimization step for the Q-function
+                    self._optim.hi.q.step()
 
-            # Update target network
-            with th.no_grad():
-                for tp, p in zip(
-                    self._target.hi.q.parameters(),
-                    self._model.hi.q.parameters(),
-                ):
-                    tp.data.lerp_(p.data, 1.0 - self._polyak)
+                    # Policy update
+                    # Prepare inputs for the policy function
+                    with th.no_grad():
+                        p_in = copy(obs)
+                        p_in[self._ckey] = self.action_hi_c_qinput(
+                            batch[f'action_hi_{self._ckey}']
+                        )
+                    # Get actions from the policy function
+                    action = self._model.hi.p(p_in)
+                    action_d = action[:, : self._d_dim]
+                    action_c = action[:, self._d_dim :]
+                    # Get action values from Q-function
+                    q_in = copy(obs)
+                    q_in[self._dkey] = action_d
+                    q_in[self._ckey] = action_c
+                    q = self._model.hi.q(q_in)
+                    q1 = q[:, 0]
+                    q2 = q[:, 1]
+                    # Get the minimum of Q1 and Q2
+                    q = th.min(q1, q2)
+                    # Get the mean of Q-values
+                    q_mean = q.mean()
+                    # Compute the policy loss
+                    p_loss = -q_mean
+                    # Zero out the gradients of the policy optimizer
+                    self._optim.hi.p.zero_grad()
+                    # Backpropagate the policy loss
+                    p_loss.backward()
+                    # If gradient clipping is used, apply it before the optimization step
+                    if self._clip_grad_norm > 0.0:
+                        nn.utils.clip_grad_norm_(
+                            self._model.p.parameters(), self._clip_grad_norm
+                        )
+                    # Optimization step for the policy
+                    self._optim.hi.p.step()
 
-        # These are the stats for the last update
-        self.tbw_add_scalar('LossHi/Policy', pi_loss.item())
-        self.tbw_add_scalar('LossHi/QValue', q_loss.item())
-        with th.no_grad():
-            bvar = backup.var()
-            resvar1 = (backup - q1).var() / bvar
-            resvar2 = (backup - q2).var() / bvar
-        self.tbw_add_scalar('HealthHi/ResidualVariance1', resvar1.item())
-        self.tbw_add_scalar('HealthHi/ResidualVariance2', resvar2.item())
-        self.tbw_add_scalar('HealthHi/EntropyC', -log_prob_c.mean())
-        self.tbw_add_scalar('HealthHi/EntropyD', dist_d.entropy().mean())
-        if self._optim_alpha_c:
-            self.tbw_add_scalar(
-                'HealthHi/AlphaC', self._log_alpha_c.exp().mean().item()
-            )
-        if self._optim_alpha_d:
-            self.tbw_add_scalar(
-                'HealthHi/AlphaD', self._log_alpha_d.exp().item()
-            )
-        if self._n_updates % 10 == 1:
-            self.tbw.add_histogram(
-                'HealthHi/PiD',
-                th.multinomial(
-                    dist_d.probs,
-                    int(np.ceil(1000 / self._bsz)),
-                    replacement=True,
-                ).view(-1),
-                self._n_samples,
-                bins=nd,
-            )
-        if self._n_updates % 100 == 1:
-            self.tbw.add_scalars(
-                'HealthHi/GradNorms',
-                {
-                    k: v.grad.norm().item()
-                    for k, v in self._model.named_parameters()
-                    if v.grad is not None
-                },
-                self.n_samples,
-            )
+                    # Temperature update
+                    alpha_loss_c = -self._log_alpha_c * (
+                        batch[f'action_hi_{self._ckey}_logp'] + self._target_entropy_c
+                    ).detach().mean()
+                    alpha_loss_d = -self._log_alpha_d * (
+                        self.action_hi_d_logp(batch[f'action_hi_{self._dkey}'])
+                        + self._target_entropy_d
+                    ).detach().mean()
+                    alpha_loss = alpha_loss_c + alpha_loss_d
+                    # Zero out the gradients of the temperature optimizer
+                    self._optim.alpha.zero_grad()
+                    # Backpropagate the temperature loss
+                    alpha_loss.backward()
+                    # Optimization step for the temperature
+                    self._optim.alpha.step()
 
-        td_err1 = q1_loss.sqrt().mean().item()
-        td_err2 = q2_loss.sqrt().mean().item()
-        td_err = (td_err1 + td_err2) / 2
-        self.tbw_add_scalar('HealthHi/AbsTDErrorTrain', td_err)
-        self.tbw_add_scalar('HealthHi/AbsTDErrorTrain1', td_err1)
-        self.tbw_add_scalar('HealthHi/AbsTDErrorTrain2', td_err2)
+                    # Log the losses
+                    self._log_losses(i, q_loss, p_loss, alpha_loss, alpha_c, alpha_d)
 
-        avg_cr = th.cat(self._cur_rewards).mean().item()
-        log_stats = [
-            ('Sample', f'{self._n_samples}'),
-            ('hi: up', f'{self._n_updates*self._num_updates}'),
-            ('avg rew', f'{avg_cr:+0.3f}'),
-            ('pi loss', f'{pi_loss.item():+.03f}'),
-            ('q loss', f'{q_loss.item():+.03f}'),
-            (
-                'entropy',
-                f'{-log_prob_c.mean().item():.03f},{dist_d.entropy().mean().item():.03f}',
-            ),
-            (
-                'alpha',
-                f'{self._log_alpha_c.mean().exp().item():.03f},{self._log_alpha_d.exp().item():.03f}',
-            ),
-        ]
-        log.info(', '.join((f'{k} {v}' for k, v in log_stats)))
+                    # Update the target network
+                    self._model.hi.q_targ.load_state_dict(self._model.hi.q.state_dict())
+
+                return self._get_logs()
+
