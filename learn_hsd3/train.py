@@ -139,20 +139,6 @@ def setup_training(cfg: DictConfig) -> TrainingSetup:
 
     return TrainingSetup()
 
-# Now, over to you! Pack your bags, and let's set off on this coding adventure!
-
-# Homework.py
-
-# Welcome back, brave adventurer! Now, it's time to evaluate our agent. 
-# It's like sending our hero into the coliseum to show off its skills!
-
-# Let's import some modules first. You're a pro at this by now!
-from typing import List, Dict, Any
-from torch import Tensor
-from collections import defaultdict
-import numpy as np
-import torch as th
-import itertools
 
 # Let's create a function to evaluate our agent's performance. 
 # This function will take a TrainingSetup object and the number of samples to test on.
@@ -189,5 +175,149 @@ def eval(setup: TrainingSetup, n_samples: int = -1):
 
     # TODO: If video was being collected, annotate the frames with the accumulated reward 
     # and push them to the request queue for display.
+    pass
 
 # Now, over to you! Strap on your armor, and let's step into the coliseum!
+
+
+#This time, we're diving into the training loop, the heart of any machine learning algorithm.
+# It's where the magic happens: 
+# the agent will interact with the environment, learn from its experiences, and gradually improve its performance.
+def train_loop(setup: TrainingSetup):
+    # TODO: Extract the agent, request queue, and environments from the setup.
+
+    # TODO: Turn on the agent's training mode.
+
+    # TODO: Set up some variables for the loop. These include the number of environments, 
+    # the path for checkpointing, video recording settings, and the maximum steps for training.
+
+    # TODO: Get the initial observation from the environments.
+
+    # TODO: Here we go! Start the training loop.
+
+        # TODO: If it's time for evaluation, save a checkpoint of the agent and evaluate it.
+
+        # TODO: If video recording is enabled and it's time to record a video, 
+        # collect the video frames and push them to the request queue.
+
+        # TODO: Get the agent's action and apply it to the environments.
+
+        # TODO: Let the agent learn from the step.
+
+        # TODO: If state count dumping is enabled and it's time to dump, 
+        # compute the unique state count and log it to TensorBoard.
+
+        # TODO: If any environments are done, reset them.
+
+        # TODO: Increment the number of samples.
+
+    # TODO: After the training loop, save a final checkpoint and evaluate the agent one last time.
+    pass
+# That's it! You're ready to take on the training loop. Remember, practice makes perfect!
+
+# In this function, we're creating a series of checkpoints for our AI agent's training process. 
+# The function is named checkpoint and it's responsible for saving the current state of the agent and several other objects. 
+# Checkpointing is important because it allows you to pause and resume training, and also provides a way to recover if something goes wrong.
+# The function checkpoint is taking one argument, setup, which is an instance of the TrainingSetup class.
+
+# Some Python functions that will be helpful for this task are:
+
+# with open(file_path, mode) as f:: It's used to open a file. 'wb' stands for 'write binary' and 'wt' for 'write text'.
+# object.save(file): It's used to save a checkpoint of an object to a file.
+# json.dump(object, file): It's used to write a JSON object to a file.
+# log.exception(message): It's used to log an exception along with a custom message.
+
+#The try-except blocks are there to catch and log any errors that might happen during the checkpointing process. 
+# It's a good practice to use them when dealing with file I/O operations because many things can go wrong 
+# (e.g., disk full, no write permissions, etc.).
+def checkpoint(setup: TrainingSetup):
+    # TODO: Log that we are starting the checkpointing process.
+
+    # TODO: Extract the configuration from the setup.
+
+    # TODO: Try to open the checkpoint file in write-binary mode.
+
+        # TODO: If successful, save the agent's checkpoint to the file.
+
+    # TODO: If there's an error during this process, log the exception.
+
+    # TODO: If the agent has a replay buffer, try to save its checkpoint.
+
+    # TODO: If there's an error during this process, log the exception.
+
+    # TODO: If the setup has a hashcount replay (hcr), try to save its checkpoint.
+
+    # TODO: If there's an error during this process, log the exception.
+
+    # TODO: Try to open the training state file in write-text mode.
+
+        # TODO: If successful, dump the number of samples to the file as a JSON object.
+
+    # TODO: If there's an error during this process, log the exception.
+
+
+# restore(setup: TrainingSetup): This function restores the state of the training process from saved checkpoint files. 
+# The setup argument is an instance of the TrainingSetup class.
+# Key Python functions and methods for this task include:
+
+# Path(file_path).is_file(): Checks if a file exists at the given path.
+# with open(file_path, mode) as f:: Opens a file. 'rt' stands for 'read text' and 'rb' for 'read binary'.
+# object.load(file): Loads a checkpoint from a file into an object.
+# json.load(file): Reads a JSON object from a file.
+# log.exception(message): Logs an exception along with a custom message.
+def restore(setup: TrainingSetup):
+    # TODO: Check if the training state file exists. If it does, open it and load the number of samples.
+
+    # TODO: If there's an error during this process, log the exception.
+
+    # TODO: Extract the configuration from the setup.
+
+    # TODO: Check if the agent's checkpoint file exists. If it does, open it and load the checkpoint into the agent.
+
+    # TODO: If the checkpoint file doesn't exist, raise an error.
+
+    # TODO: If the agent has a replay buffer and its checkpoint file exists, open it and load the checkpoint into the replay buffer.
+
+    # TODO: If there's an error during this process, log the exception.
+
+    # TODO: If the setup has a hashcount replay (hcr) and its checkpoint file exists, open it and load the checkpoint into the hcr.
+
+    # TODO: If there's an error during this process, log the exception.
+
+
+# auto_adapt_config(cfg: DictConfig) -> DictConfig: This function adapts the configuration based on the specific environment.
+# Key Python functions and methods for this task include:
+
+# str.startswith(substring): Checks if a string starts with the given substring.
+# OmegaConf.set_struct(cfg, bool): Sets the struct flag of a DictConfig object. If the flag is set to True, the object becomes read-only.
+# OmegaConf.to_yaml(cfg, resolve=True): Converts a DictConfig object to a YAML string.
+
+def auto_adapt_config(cfg: DictConfig) -> DictConfig:
+    # TODO: If the environment is 'BiskStairs', append '-relz' to the goal_space configuration.
+
+    # TODO: If the environment is 'BiskPoleBalance', set the action_interval configuration to 1.
+
+    # TODO: Return the adapted configuration.
+
+# main(cfg: DictConfig): This function sets up and starts the training loop.
+
+# Key Python functions and methods for this task include:
+
+# hydra.utils.get_original_cwd(): Gets the original working directory before Hydra changed it.
+# setup_training(cfg): Sets up
+def main(cfg: DictConfig):
+    # TODO: Log the original working directory.
+
+    # TODO: If auto_adapt is enabled in the configuration, adapt the configuration.
+
+    # TODO: Log the final configuration.
+
+    # TODO: Set up the training process.
+
+    # TODO: Set the checkpoint function.
+
+    # TODO: Restore the state of the training process from checkpoints.
+
+    # TODO: Start the training loop.
+
+    # TODO: Close the setup after the training loop has finished.
