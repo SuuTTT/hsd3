@@ -1,0 +1,388 @@
+/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/site-packages/glfw/__init__.py:916: GLFWError: (65544) b'X11: The DISPLAY environment variable is missing'
+  warnings.warn(message, GLFWError)
+/home/ubuntu/hsd3/train.py:535: UserWarning: 
+The version_base parameter is not specified.
+Please specify a compatability version level, or None.
+Will assume defaults for version 1.1
+  @hydra.main(config_path='config')
+pretrain.py:946: UserWarning: 
+The version_base parameter is not specified.
+Please specify a compatability version level, or None.
+Will assume defaults for version 1.1
+  @hydra.main(config_path='config')
+/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/site-packages/hydra/_internal/defaults_list.py:251: UserWarning: In 'walker_pretrain': Defaults list is missing `_self_`. See https://hydra.cc/docs/1.2/upgrades/1.0_to_1.1/default_composition_order for more information
+  warnings.warn(msg, UserWarning)
+[2023-05-08 06:17:13,636][__main__][INFO] - ** running from source tree at /home/ubuntu/hsd3
+[2023-05-08 06:17:13,636][__main__][INFO] - ** running at /home/ubuntu/hsd3
+[2023-05-08 06:17:13,651][__main__][INFO] - ** configuration:
+slurm:
+  partition: learnfair
+  cpus_per_task: 20
+  gpus_per_task: 2
+  time_min: 4320
+  mem_gb: 32
+  comment: ''
+  max_restart: 3
+seed: 0
+device: cuda
+log_level: info
+visdom:
+  host: localhost
+  port: 8097
+  env: main
+  offline: true
+  logfile: visdom.log
+checkpoint_path: checkpoint-lo.pt
+keep_all_checkpoints: true
+auto_adapt: false
+dump_state_counts: 0
+env:
+  name: ContCtrlgsPreTraining-v1
+  train_procs: 20
+  eval_procs: 20
+  args:
+    robot: Walker
+    features: bodyfeet
+    idle_steps: 0
+    max_steps: 72
+    precision: 0.1
+    resample_features: soft
+    goal_sampling: uniform
+    hard_reset_interval: 100
+    implicit_soft_resets: true
+    ctrl_cost: 0.001
+  train_args:
+    robot: Walker
+    features: bodyfeet
+    idle_steps: 0
+    max_steps: 72
+    precision: 0.1
+    resample_features: soft
+    goal_sampling: uniform
+    hard_reset_interval: 100
+    implicit_soft_resets: true
+    ctrl_cost: 0.001
+  eval_args:
+    robot: Walker
+    features: bodyfeet
+    idle_steps: 0
+    max_steps: 72
+    precision: 0.1
+    resample_features: soft
+    goal_sampling: uniform
+    hard_reset_interval: 100
+    implicit_soft_resets: true
+    ctrl_cost: 0.001
+  wrappers: []
+eval:
+  interval: 100000
+  metrics:
+    episode_length: default
+    return_disc: default
+    return_undisc: default
+  video:
+    record_all: false
+    length: 500
+    size:
+    - 480
+    - 480
+    annotations: true
+  episodes_per_task: 50
+video:
+  interval: 500000
+  length: 500
+  size:
+  - 480
+  - 480
+  annotations: true
+agent:
+  name: sacmt
+  gamma: auto_horizon
+  polyak: 0.995
+  batch_size: 256
+  rpbuf_size: 3000000.0
+  rpbuf_device: auto
+  samples_per_update: 1000
+  num_updates: 50
+  warmup_samples: 10000
+  randexp_samples: 10000
+  clip_grad_norm: 0.0
+  update_reachability: true
+  alpha: 0.1
+  per_task_alpha: false
+  target_entropy_factor: 1.0
+  optim_alpha:
+    _target_: torch.optim.Adam
+    lr: 0.0001
+  ignore_eoe: false
+  flatten_obs: false
+horizon: 72
+idle_steps: 0
+robot: Walker
+features: bodyfeet
+feature_dims: 0#1#2#3+4#5+6
+feature_rank: 1
+feature_rank_max: 99
+ctrl_eps: 1.0
+precision: 0.1
+max_new_tasks: 1000
+task_weighting: uniform
+downrank: 0.1
+lp_new_task: 0.1
+lp_eps: 0.1
+eval_mode: reachability
+max_steps: 50000000.0
+combine_after_steps: 0
+backprop_fallover: false
+estimate_joint_spaces: null
+init_model_from: null
+distributed:
+  num_actors: 1
+  num_learners: 1
+  rdvu_path: /tmp
+model:
+  pi: pi_d2rl_d_1024
+  q: qd_d2rl_d_1024
+  reachability: q_d2rl_d_1024
+optim:
+  pi:
+    _target_: torch.optim.Adam
+    lr: 0.0001
+    fuse: true
+  q:
+    _target_: torch.optim.Adam
+    lr: 0.0001
+    fuse: true
+  reachability:
+    _target_: torch.optim.Adam
+    lr: 0.0001
+    fuse: true
+
+/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/site-packages/hydra/_internal/hydra.py:119: UserWarning: Future Hydra versions will no longer change working directory at job runtime by default.
+See https://hydra.cc/docs/1.2/upgrades/1.1_to_1.2/changes_to_job_working_dir/ for more information.
+  ret = run_job(
+[2023-05-08 06:17:13,661][__main__][INFO] - Creating process group of size 2 via file:///tmp/rdvu-2d128a8b-4ff7-49f5-99de-f91c1d780be3 [rank=0]
+[2023-05-08 06:17:13,666][__main__][INFO] - Creating process group of size 2 via file:///tmp/rdvu-2d128a8b-4ff7-49f5-99de-f91c1d780be3 [rank=1]
+[2023-05-08 06:17:13,675][torch.distributed.distributed_c10d][INFO] - Added key: store_based_barrier_key:1 to store for rank: 0
+[2023-05-08 06:17:13,679][torch.distributed.distributed_c10d][INFO] - Added key: store_based_barrier_key:1 to store for rank: 1
+[2023-05-08 06:17:13,679][torch.distributed.distributed_c10d][INFO] - Rank 1: Completed store-based barrier for key:store_based_barrier_key:1 with 2 nodes.
+[2023-05-08 06:17:13,685][torch.distributed.distributed_c10d][INFO] - Rank 0: Completed store-based barrier for key:store_based_barrier_key:1 with 2 nodes.
+[2023-05-08 06:17:13,692][__main__][INFO] - gamma set to 0.9861111111111112
+[2023-05-08 06:17:13,692][train][WARNING] - CUDA not available, falling back to CPU
+[2023-05-08 06:17:13,694][__main__][INFO] - gamma set to 0.9861111111111112
+[2023-05-08 06:17:13,694][train][WARNING] - CUDA not available, falling back to CPU
+/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/site-packages/gym/spaces/box.py:73: UserWarning: [33mWARN: Box bound precision lowered by casting to float32[0m
+  logger.warn(
+[2023-05-08 06:17:19,650][train][INFO] - Model from config:
+ModuleDict(
+  (pi): Sequential(
+    (0): FlattenSpace()
+    (1): SkipNetwork(
+      (layers): ModuleList(
+        (0): Linear(in_features=73, out_features=1024, bias=True)
+        (1-3): 3 x Linear(in_features=1097, out_features=1024, bias=True)
+      )
+    )
+    (2): GaussianFromEmbedding(
+      (mu): Linear(in_features=1024, out_features=6, bias=True)
+      (log_std): Linear(in_features=1024, out_features=6, bias=True)
+    )
+    (3): TransformDistribution()
+  )
+  (q): Sequential(
+    (0): FlattenSpace()
+    (1): SkipDoubleQNetwork(
+      (l0): Linear(in_features=79, out_features=2048, bias=True)
+      (layers): ModuleList(
+        (0-2): 3 x GroupedLinear(in_features=2206, out_features=2048, groups=2, bias=True)
+      )
+      (lN): GroupedLinear(in_features=2048, out_features=2, groups=2, bias=True)
+    )
+  )
+  (reachability): Sequential(
+    (0): FlattenSpace()
+    (1): SkipNetwork(
+      (layers): ModuleList(
+        (0): Linear(in_features=79, out_features=1024, bias=True)
+        (1-3): 3 x Linear(in_features=1103, out_features=1024, bias=True)
+      )
+    )
+    (2): Linear(in_features=1024, out_features=1, bias=True)
+    (3): SqueezeLastDim()
+  )
+)
+[2023-05-08 06:17:21,307][train][INFO] - Model from config:
+ModuleDict(
+  (pi): Sequential(
+    (0): FlattenSpace()
+    (1): SkipNetwork(
+      (layers): ModuleList(
+        (0): Linear(in_features=73, out_features=1024, bias=True)
+        (1-3): 3 x Linear(in_features=1097, out_features=1024, bias=True)
+      )
+    )
+    (2): GaussianFromEmbedding(
+      (mu): Linear(in_features=1024, out_features=6, bias=True)
+      (log_std): Linear(in_features=1024, out_features=6, bias=True)
+    )
+    (3): TransformDistribution()
+  )
+  (q): Sequential(
+    (0): FlattenSpace()
+    (1): SkipDoubleQNetwork(
+      (l0): Linear(in_features=79, out_features=2048, bias=True)
+      (layers): ModuleList(
+        (0-2): 3 x GroupedLinear(in_features=2206, out_features=2048, groups=2, bias=True)
+      )
+      (lN): GroupedLinear(in_features=2048, out_features=2, groups=2, bias=True)
+    )
+  )
+  (reachability): Sequential(
+    (0): FlattenSpace()
+    (1): SkipNetwork(
+      (layers): ModuleList(
+        (0): Linear(in_features=79, out_features=1024, bias=True)
+        (1-3): 3 x Linear(in_features=1103, out_features=1024, bias=True)
+      )
+    )
+    (2): Linear(in_features=1024, out_features=1, bias=True)
+    (3): SqueezeLastDim()
+  )
+)
+[2023-05-08 06:17:24,856][__main__][ERROR] - Error in training loop
+Traceback (most recent call last):
+  File "pretrain.py", line 935, in worker
+    train_loop_mfdim_actor(setup)
+  File "pretrain.py", line 575, in train_loop_mfdim_actor
+    cperf_new = eval_mfdim(setup, setup.n_samples)
+  File "pretrain.py", line 409, in eval_mfdim
+    'img': envs.render_single(
+  File "/home/ubuntu/hsd3/hucc/envs/wrappers.py", line 195, in render_single
+    return th.from_numpy(out)
+TypeError: expected np.ndarray (got NoneType)
+Process Process-1:1:
+Traceback (most recent call last):
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/process.py", line 315, in _bootstrap
+    self.run()
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/ubuntu/hsd3/hucc/render.py", line 69, in run
+    item = queue.get()
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/queues.py", line 97, in get
+    res = self._recv_bytes()
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/connection.py", line 216, in recv_bytes
+    buf = self._recv_bytes(maxlength)
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/connection.py", line 414, in _recv_bytes
+    buf = self._recv(4)
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/connection.py", line 379, in _recv
+    chunk = read(handle, remaining)
+KeyboardInterrupt
+Traceback (most recent call last):
+  File "pretrain.py", line 999, in <module>
+    main()
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/site-packages/hydra/main.py", line 94, in decorated_main
+    _run_hydra(
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/site-packages/hydra/_internal/utils.py", line 394, in _run_hydra
+    _run_app(
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/site-packages/hydra/_internal/utils.py", line 457, in _run_app
+    run_and_report(
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/site-packages/hydra/_internal/utils.py", line 220, in run_and_report
+    return func()
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/site-packages/hydra/_internal/utils.py", line 458, in <lambda>
+    lambda: hydra.run(
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/site-packages/hydra/_internal/hydra.py", line 119, in run
+    ret = run_job(
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/site-packages/hydra/core/utils.py", line 186, in run_job
+    ret.return_value = task_function(task_cfg)
+  File "pretrain.py", line 991, in main
+    p.join()
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/process.py", line 149, in join
+    res = self._popen.wait(timeout)
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/popen_fork.py", line 47, in wait
+    return self.poll(os.WNOHANG if timeout == 0.0 else 0)
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/popen_fork.py", line 27, in poll
+    pid, sts = os.waitpid(self.pid, flag)
+KeyboardInterrupt
+Process Process-2:1:
+Traceback (most recent call last):
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/process.py", line 315, in _bootstrap
+    self.run()
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/home/ubuntu/hsd3/hucc/render.py", line 69, in run
+    item = queue.get()
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/queues.py", line 97, in get
+    res = self._recv_bytes()
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/connection.py", line 216, in recv_bytes
+    buf = self._recv_bytes(maxlength)
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/connection.py", line 414, in _recv_bytes
+    buf = self._recv(4)
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/connection.py", line 379, in _recv
+    chunk = read(handle, remaining)
+KeyboardInterrupt
+[2023-05-08 06:29:22,865][__main__][ERROR] - Error in training loop
+Traceback (most recent call last):
+  File "pretrain.py", line 938, in worker
+    train_loop_mfdim_learner(setup, setup.queues[rank])
+  File "pretrain.py", line 513, in train_loop_mfdim_learner
+    transition = queue.get()
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/queues.py", line 97, in get
+    res = self._recv_bytes()
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/connection.py", line 216, in recv_bytes
+    buf = self._recv_bytes(maxlength)
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/connection.py", line 414, in _recv_bytes
+    buf = self._recv(4)
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/connection.py", line 379, in _recv
+    chunk = read(handle, remaining)
+KeyboardInterrupt
+Process Process-2:
+Traceback (most recent call last):
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/process.py", line 315, in _bootstrap
+    self.run()
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "pretrain.py", line 935, in worker
+    train_loop_mfdim_actor(setup)
+  File "pretrain.py", line 575, in train_loop_mfdim_actor
+    cperf_new = eval_mfdim(setup, setup.n_samples)
+  File "pretrain.py", line 409, in eval_mfdim
+    'img': envs.render_single(
+  File "/home/ubuntu/hsd3/hucc/envs/wrappers.py", line 195, in render_single
+    return th.from_numpy(out)
+TypeError: expected np.ndarray (got NoneType)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/process.py", line 318, in _bootstrap
+    util._exit_function()
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/util.py", line 357, in _exit_function
+    p.join()
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/process.py", line 149, in join
+    res = self._popen.wait(timeout)
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/popen_fork.py", line 47, in wait
+    return self.poll(os.WNOHANG if timeout == 0.0 else 0)
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/popen_fork.py", line 27, in poll
+    pid, sts = os.waitpid(self.pid, flag)
+KeyboardInterrupt
+/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/site-packages/gym/spaces/box.py:73: UserWarning: [33mWARN: Box bound precision lowered by casting to float32[0m
+  logger.warn(
+Process Process-1:
+Traceback (most recent call last):
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/process.py", line 315, in _bootstrap
+    self.run()
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "pretrain.py", line 938, in worker
+    train_loop_mfdim_learner(setup, setup.queues[rank])
+  File "pretrain.py", line 513, in train_loop_mfdim_learner
+    transition = queue.get()
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/queues.py", line 97, in get
+    res = self._recv_bytes()
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/connection.py", line 216, in recv_bytes
+    buf = self._recv_bytes(maxlength)
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/connection.py", line 414, in _recv_bytes
+    buf = self._recv(4)
+  File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/connection.py", line 379, in _recv
+    chunk = read(handle, remaining)
+KeyboardInterrupt
