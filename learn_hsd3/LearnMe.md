@@ -1,4 +1,4 @@
-this is my gpt generated notes of learning the hsd3 repository.
+note: this doc is assisted heavily by GPT4
 ## Prelude: learn by homework (not GPT genrated)
 I create a hsd3_learn dir, that contains the commented version of the original code.
 I make a try to let gpt4 turn the code into a programming homework (the one in Stanford CSw224 GNN) usng the promtps like
@@ -12,10 +12,11 @@ don't skip, ensuring every line is the same with the original codes.
 in what order should you transform the code into homework, for better understanding
 Considering the complexity of the codebase and the interconnectedness of the various components, a good strategy would be to start with the fundamental building blocks and gradually move towards the more complex functionalities. Here's a recommended order to transform the code into homework assignments
 
-> add comment, 
-provide information and background like the purpose of function, variable meaning, library function usage and syntax etc. in the format comment,
-don't skip, ensuring every line is the same with the original code
+> act as a Stanford CS TA for RL course who is humourous and good at 引导和启发 students.your task is to add comment to the given code, provide information and background like the purpose of function, variable meaning, library function usage and syntax etc. in the format comment,
+don't skip, ensuring every line is the same with the original code.
+i will give multiple code
 
+> Given the following code, please generate Python docstrings for the classes and methods, and annotate the code with comments that would help a beginner understand it. Provide an annotated version that would help another developer understand its structure and logic. Make sure to explain the data structures used and their manipulation, and how it uses specific libraries or frameworks. Write extensive comments suitable for a code review.
 
 after finishing this helpful and interesting tutorial, one should be able to run the hsd3 and have a good understanding of the codebase.
 
@@ -328,6 +329,13 @@ This class heavily relies on PyTorch and the gym library for handling tensors an
  >  add comment in a code review paradigm: provide information and background like the purpose of function, variable meaning, library function usage and syntax etc. in the format comment,
 make sure every line is the same with the original codes. 
 when i say continue, directly generate the continuous upcomming content.
+
+### strlgs.py
+> prompt:Given the following code, please generate Python docstrings for the classes and methods, and annotate the code with comments that would help a beginner understand it. Provide an annotated version that would help another developer understand its structure and logic. Make sure to explain the data structures used and their manipulation, and how it uses specific libraries or frameworks. Write extensive comments suitable for a code review.
+> 
+The CtrlgsPreTrainingEnv class inherits from the BiskSingleRobotEnv class.It represents a multi-task, goal-based pre-training environment where a single robot can be controlled.
+
+The CtrlgsPreTrainingEnv class represents a robot training environment where the robot can perform various tasks. The robot, the tasks, and the features to be controlled can all be specified upon creating an instance of this class. The robot's actions are then constrained by the specified tasks, and rewards are given based on the robot's performance in executing these tasks. The class allows for fine-grained control of the robot's behavior and the training process, with many parameters that can be tuned to fit different scenarios.
 
 4. **Replay Buffer and Hash Count**: The `hucc/replaybuffer.py` and `hucc/hashcount.py` files seem to implement important aspects of the agent's memory and state tracking. These should be covered next.
 
