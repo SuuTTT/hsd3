@@ -169,39 +169,139 @@ class BodyFeetHumanoidFeaturizer(Featurizer):
         names += [f'right_foot:p{f}' for f in 'xyz']
         return names
 
+
+
 class BodyFeetRelZHumanoidFeaturizer(BodyFeetHumanoidFeaturizer):
+    """
+    The BodyFeetRelZHumanoidFeaturizer class extends BodyFeetHumanoidFeaturizer by adding 
+    relative z-height feature. It helps in extracting more complex features from the robot's state.
+    
+    Attributes:
+    -----------
+    relzf : JointsRelZFeaturizer
+        An object of the JointsRelZFeaturizer class which is used to calculate the relative z-height.
+    """
+
     def __init__(
         self, p: mujoco.Physics, robot: str, prefix: str, exclude: str = None
     ):
+        """
+        Initializes the BodyFeetRelZHumanoidFeaturizer with the provided parameters.
+        
+        Parameters:
+        -----------
+        p : mujoco.Physics
+            The physics model of the environment.
+        robot : str
+            The type of the robot.
+        prefix : str
+            The prefix for the robot's joints.
+        exclude : str, optional
+            The joints to be excluded, default is None.
+        """
+        # Call the constructor of the superclass
         super().__init__(p, robot, prefix, exclude)
+        # Initialize the JointsRelZFeaturizer object
         self.relzf = JointsRelZFeaturizer(p, robot, prefix, exclude)
 
     def relz(self):
+        """
+        Method to calculate the relative z-height of the robot.
+        
+        Returns:
+        --------
+        float
+            The relative z-height of the robot.
+        """
+        # Call the relz method of the JointsRelZFeaturizer object
         return self.relzf.relz()
 
     def __call__(self) -> np.ndarray:
+        """
+        Override the call method to provide the state of the robot as a numpy array.
+        
+        Returns:
+        --------
+        np.ndarray
+            The state of the robot as a numpy array.
+        """
+        # Get the state of the robot from the superclass
         obs = super().__call__()
+        # Replace the third element of the state with the relative z-height
         obs[2] = self.relz()
+        # Return the updated state
         return obs
 
 
 def bodyfeet_featurizer(
     p: mujoco.Physics, robot: str, prefix: str, *args, **kwargs
 ):
+    """
+    Function to create an instance of the appropriate BodyFeetFeaturizer based on the robot type.
+    
+    Parameters:
+    -----------
+    p : mujoco.Physics
+        The physics model of the environment.
+    robot : str
+        The type of the robot.
+    prefix : str
+        The prefix for the robot's joints.
+    *args, **kwargs
+        Additional arguments and keyword arguments to pass to the BodyFeetFeaturizer constructor.
+    
+    Returns:
+    --------
+    BodyFeetFeaturizer
+        An instance of the appropriate BodyFeetFeaturizer.
+    
+    Raises:
+    -------
+    ValueError
+        If the robot type is not 'walker' or 'humanoid'/'humanoidpc'.
+    """
+    # Check the robot type and return the appropriate featurizer
     if robot == 'walker':
         return BodyFeetWalkerFeaturizer(p, robot, prefix, *args, **kwargs)
     elif robot == 'humanoid' or robot == 'humanoidpc':
         return BodyFeetHumanoidFeaturizer(p, robot, prefix, *args, **kwargs)
     else:
+        # Raise an exception if the robot type is not supported
         raise ValueError(f'No bodyfeet featurizer for robot "{robot}"')
-
 
 def bodyfeet_relz_featurizer(
     p: mujoco.Physics, robot: str, prefix: str, *args, **kwargs
 ):
+    """
+    Function to create an instance of the appropriate BodyFeetRelZFeaturizer based on the robot type.
+    
+    Parameters:
+    -----------
+    p : mujoco.Physics
+        The physics model of the environment.
+    robot : str
+        The type of the robot.
+    prefix : str
+        The prefix for the robot's joints.
+    *args, **kwargs
+        Additional arguments and keyword arguments to pass to the BodyFeetRelZFeaturizer constructor.
+    
+    Returns:
+    --------
+    BodyFeetRelZFeaturizer
+        An instance of the appropriate BodyFeetRelZFeaturizer.
+    
+    Raises:
+    -------
+    ValueError
+        If the robot type is not 'walker' or 'humanoid'/'humanoidpc'.
+    """
+    # Check the robot type and return the appropriate featurizer
     if robot == 'walker':
         return BodyFeetRelZWalkerFeaturizer(p, robot, prefix, *args, **kwargs)
     elif robot == 'humanoid' or robot == 'humanoidpc':
         return BodyFeetRelZHumanoidFeaturizer(p, robot, prefix, *args, **kwargs)
     else:
+        # Raise an exception if the robot type is not supported
         raise ValueError(f'No bodyfeet-relz featurizer for robot "{robot}"')
+
