@@ -332,10 +332,20 @@ when i say continue, directly generate the continuous upcomming content.
 
 ### strlgs.py
 > prompt:Given the following code, please generate Python docstrings for the classes and methods, and annotate the code with comments that would help a beginner understand it. Provide an annotated version that would help another developer understand its structure and logic. Make sure to explain the data structures used and their manipulation, and how it uses specific libraries or frameworks. Write extensive comments suitable for a code review.
-> 
+
+
+
+#### strlgs
 The CtrlgsPreTrainingEnv class inherits from the BiskSingleRobotEnv class.It represents a multi-task, goal-based pre-training environment where a single robot can be controlled.
 
 The CtrlgsPreTrainingEnv class represents a robot training environment where the robot can perform various tasks. The robot, the tasks, and the features to be controlled can all be specified upon creating an instance of this class. The robot's actions are then constrained by the specified tasks, and rewards are given based on the robot's performance in executing these tasks. The class allows for fine-grained control of the robot's behavior and the training process, with many parameters that can be tuned to fit different scenarios.
+
+#### features
+This BodyFeetWalkerFeaturizer class is a specialized Featurizer for a Walker robot. It extracts body and feet positions of the robot to form a feature vector. The __call__ method returns the feature representation of the robot, and feature_names method provides names for each feature. The actual features are the root position in z, x, y coordinates, and the left and right foot positions in x, z coordinates.
+
+In the __call__ method of BodyFeetHumanoidFeaturizer class, the root position and orientation in the humanoid robot's coordinate frame are calculated, along with the relative position of the left and right feet. This information is concatenated into a single feature vector.
+
+The feature_names method returns a list of strings, each of which describes one element of the feature vector. The prefix 'root' refers to the root joint of the humanoid, 'p' refers to position, 't' is for twist, and 's' for swing. 'left_foot' and 'right_foot' refer to the left and right feet of the humanoid robot, respectively.
 
 4. **Replay Buffer and Hash Count**: The `hucc/replaybuffer.py` and `hucc/hashcount.py` files seem to implement important aspects of the agent's memory and state tracking. These should be covered next.
 
