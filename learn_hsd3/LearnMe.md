@@ -629,6 +629,47 @@ The `${...}` syntax in Hydra is used for interpolation, where the value of one c
 
 Remember, these explanations are based on general machine learning concepts and some educated guesses. The actual meaning of the parameters could be different and could be understood by reading the documentation or the code of the specific project.
 
+### process of dims
+This function appears to be a setup function for training a reinforcement learning agent in a multi-feature control environment. The function takes a configuration object (cfg) that contains parameters for the training setup.
+
+Here's a brief rundown of what this function does:
+
+1. It parses and validates the `feature_dims` parameter in the configuration object. `feature_dims` seems to specify the dimensions of the goal space that the agent will be operating in. It could be a string such as 'all' or 'torso' (which correspond to predefined sets of features), or a set of indices, potentially combined with the '+' operator, indicating that multiple dimensions should be considered as a single feature.
+
+2. It checks the controllability of each specified feature. If a feature is found to be uncontrollable (as determined by the `feature_controllable` function), it's removed from the feature set.
+
+3. It checks the `feature_rank` parameter, which appears to specify the number of features the agent will be simultaneously controlling. If it's set to 'max', it is replaced with the total number of features. If the number of features is less than the `feature_rank`, an error is raised.
+
+4. It constructs a `feature_dist` dictionary which contains combinations of features as keys and their probabilities as values. The probabilities are initially set to be uniform but can be modified if the `task_weighting` parameter starts with 'lp'.
+
+5. The function also constructs a `task_map` that maps each feature to a unique integer.
+
+6. If the `gamma` parameter of the agent is set to 'auto_horizon', it calculates the `gamma` value based on the `horizon` parameter.
+
+7. Finally, it calls the `setup_training` function with the updated configuration object and prepares the setup for the training process.
+
+As for the function's requirements documentation, it might look something like this:
+
+```python
+"""
+Sets up the training process for a multi-feature control task.
+
+:param cfg: A configuration object containing parameters for the training setup.
+    This object should have properties such as 'feature_dims', 'feature_rank', 'task_weighting', 
+    'horizon', and others that control the training process.
+
+:raises ValueError: If the number of features is less than the requested rank.
+
+:returns: A setup object for the training process, which includes goal dimensions and a task map.
+
+This function processes the configuration object, validates and interprets its parameters, 
+checks feature controllability, prepares the feature distribution and task map, sets the gamma value 
+for the agent if necessary, and calls the setup_training function to finalize the setup process.
+"""
+```
+
+Please note that this interpretation is based on the provided code snippet and might not completely cover all the nuances of your specific application. Always refer to your application's specific documentation and resources for precise information.
+
 
 
 ## Train & pretrain
