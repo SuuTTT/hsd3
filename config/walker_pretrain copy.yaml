@@ -38,8 +38,7 @@ distributed:
   rdvu_path: /tmp
 
 slurm:
-  # for server 3
-  gpus_per_task: 1
+  gpus_per_task: 2
   cpus_per_task: ${env.train_procs}
 
 visdom:

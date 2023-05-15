@@ -1,7 +1,7 @@
 # Some reasonable defaults for all experiments
 hydra:
-  run:
-    dir: .
+  #run:
+    #dir: .
   sweep:  # used for slurm jobs
     dir: /checkpoint/${oc.env:USER}/jobs/${now:%Y}/${now:%Y-%m}/${now:%Y-%m-%d}/${hydra.job.name}.${now:%H-%M-%S}
 slurm:

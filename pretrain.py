@@ -872,7 +872,9 @@ def setup_training_mfdim(cfg: DictConfig):
 
 def worker(rank, role, queues, bcast_barrier, cfg: DictConfig):
     if th.cuda.is_available():
-        th.cuda.set_device(rank)
+        print(rank)
+        th.cuda.set_device(0)
+        
     log.info(
         f'Creating process group of size {cfg.distributed.size} via {cfg.distributed.init_method} [rank={rank}]'
     )
@@ -943,7 +945,7 @@ def worker(rank, role, queues, bcast_barrier, cfg: DictConfig):
     setup.close()
 
 
-@hydra.main(config_path='config')
+@hydra.main(config_path='/home/sudingli/workplace/hsd3/config')
 def main(cfg: DictConfig):
     log.info(f'** running from source tree at {hydra.utils.get_original_cwd()}')
     log.info(f'** running at {os.getcwd()}')
@@ -973,15 +975,17 @@ def main(cfg: DictConfig):
     queues = [mp.Queue() for _ in range(nl)]
     bcast_barrier = mp.Barrier(na + nl)
     rank = 0
+    #The error seems to occur due to the variable rank being incremented each time a process is created in the for loop, irrespective of the total number of available GPUs.
+    #When you have two GPUs, the ranks assigned to the processes (0 and 1) correspond to valid GPU device IDs. However, when you only have one GPU, any rank other than 0 will lead to an invalid device ordinal error, as it refers to a non-existent GPU.
     for _ in range(nl):
         p = mp.Process(
-            target=worker, args=(rank, 'learner', queues, bcast_barrier, cfg)
+            target=worker, args=(rank % cfg.slurm.gpus_per_task, 'learner', queues, bcast_barrier, cfg)
         )
         procs.append(p)
         rank += 1
     for _ in range(na):
         p = mp.Process(
-            target=worker, args=(rank, 'actor', queues, bcast_barrier, cfg)
+            target=worker, args=(rank % cfg.slurm.gpus_per_task, 'actor', queues, bcast_barrier, cfg)
         )
         procs.append(p)
         rank += 1
