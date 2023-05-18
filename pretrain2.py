@@ -498,7 +498,7 @@ def eval_mfdim(setup, n_samples: int) -> Dict[str, float]:
     return goalsa_reached
 
 
-def train_loop_mfdim_learner(setup: TrainingSetup, transition):
+def train_loop_mfdim_learner(setup: TrainingSetup, queue: mp.Queue):
     cfg = setup.cfg
     agent = setup.agent
     envs = setup.envs
@@ -510,7 +510,7 @@ def train_loop_mfdim_learner(setup: TrainingSetup, transition):
 
     while setup.n_samples < max_steps - n_envs:
         # log.debug(f'learner loop {setup.n_samples} queue size {queue.qsize()}')
-        
+        transition = queue.get()
         agent.step(envs, *transition)
         del transition
         setup.n_samples += n_envs
@@ -519,7 +519,7 @@ def train_loop_mfdim_learner(setup: TrainingSetup, transition):
 def train_loop_mfdim_actor(setup: TrainingSetup):
     cfg = setup.cfg
     agent = setup.agent
-   
+    queues = setup.queues
     rq = setup.rq
     envs = setup.envs
     model = setup.model
@@ -527,12 +527,12 @@ def train_loop_mfdim_actor(setup: TrainingSetup):
     agent.train()
 
     shared_model = deepcopy(model)
-    # shared_model.to('cpu')
-    # # We'll never need gradients for the target network
-    # for param in shared_model.parameters():
-    #     param.requires_grad_(False)
-    #     param.share_memory_()
-    # envs.call('set_model', shared_model, agent._gamma)
+    shared_model.to('cpu')
+    # We'll never need gradients for the target network
+    for param in shared_model.parameters():
+        param.requires_grad_(False)
+        param.share_memory_()
+    envs.call('set_model', shared_model, agent._gamma)
     prev_n_updates = agent.n_updates
 
     n_envs = envs.num_envs
@@ -547,6 +547,7 @@ def train_loop_mfdim_actor(setup: TrainingSetup):
     eval_mode = str(cfg.eval_mode)
     cperf: Dict[str, float] = {}
     running_cperf: Dict[str, float] = defaultdict(float)
+    transitions = []  # Store transitions here instead of putting them into queues
     while setup.n_samples < max_steps:
         log.debug(f'actor loop {setup.n_samples}')
         if setup.n_samples % cfg.eval.interval == 0:
@@ -676,43 +677,36 @@ def train_loop_mfdim_actor(setup: TrainingSetup):
             if cfg.agent.name != 'sacmt'
             else next_obs
         )
-        # XXX CPU transfer seems to be necessary :/
-        # nq = len(queues)
-        # ct_obs = {k: v.cpu().chunk(nq) for k, v in t_obs.items()}
-        # c_action = action.cpu().chunk(nq)
-        # ct_next_obs = {k: v.cpu().chunk(nq) for k, v in t_next_obs.items()}
-        # c_done = done.cpu().chunk(nq)
-        # c_reward = reward.cpu().chunk(nq)
-        # pos = 0
-        # for i, queue in enumerate(queues):
-        #     log.debug(
-        #         f'put {c_action[i].shape[0]} of {action.shape[0]} elems into queue {i}'
-        #     )
-        #     n = c_action[i].shape[0]
-        #     queue.put(
-        #         (
-        #             {k: v[i] for k, v in ct_obs.items()},
-        #             c_action[i],
-        #             extra,
-        #             (
-        #                 {k: v[i] for k, v in ct_next_obs.items()},
-        #                 c_reward[i],
-        #                 c_done[i],
-        #                 info[pos : pos + n],
-        #             ),
-        #         )
-        #     )
-        #     pos += n
-        # agent.step(envs, t_obs, action, extra, (t_next_obs, reward, done, info))
-
-        # instead of putting transitions into queues, we just append them to our list
         
-        transition = (t_obs, action, extra, (t_next_obs, reward, done, info))
-        transitions.append(transition)
-        if transitions:  # if there is any transition stored
-            transition = transitions.pop(0)  # take the first transition
-            train_loop_mfdim_learner(setup, transition)  # pass transition directly to the learner function
-            del transition
+        # XXX CPU transfer seems to be necessary :/
+        nq = len(queues)
+        ct_obs = {k: v.cpu().chunk(nq) for k, v in t_obs.items()}
+        c_action = action.cpu().chunk(nq)
+        ct_next_obs = {k: v.cpu().chunk(nq) for k, v in t_next_obs.items()}
+        c_done = done.cpu().chunk(nq)
+        c_reward = reward.cpu().chunk(nq)
+        pos = 0
+        for i, queue in enumerate(queues):
+            log.debug(
+                f'put {c_action[i].shape[0]} of {action.shape[0]} elems into queue {i}'
+            )
+            n = c_action[i].shape[0]
+            queue.put(
+                (
+                    {k: v[i] for k, v in ct_obs.items()},
+                    c_action[i],
+                    extra,
+                    (
+                        {k: v[i] for k, v in ct_next_obs.items()},
+                        c_reward[i],
+                        c_done[i],
+                        info[pos : pos + n],
+                    ),
+                )
+            )
+            pos += n
+        transitions.append((t_obs, action, extra, (t_next_obs, reward, done, info)))
+        agent.step(envs, t_obs, action, extra, (t_next_obs, reward, done, info))
         obs = envs.reset_if_done()
         setup.n_samples += n_envs
 
@@ -878,21 +872,38 @@ def setup_training_mfdim(cfg: DictConfig):
     setup.task_map = dict(cfg.env.args.get('task_map', {}))
     return setup
 
-def train(cfg: DictConfig):
+
+# The function is renamed to 'train_single_process' as we are no longer using worker processes
+def train_single_process(cfg: DictConfig):
+    if th.cuda.is_available():
+        th.cuda.set_device(0)
+        
+    # No longer checking if role is 'learner', as single process has to perform both roles
     OmegaConf.set_struct(cfg.env, False)
     cfg.env.args.fork = False
     cfg.env.eval_procs = 1
-    cfg.agent.batch_size //= cfg.distributed.num_learners
-    cfg.agent.samples_per_update //= cfg.distributed.num_learners
-    cfg.agent.warmup_samples //= cfg.distributed.num_learners
-
-    try:
-        setup = setup_training_mfdim(cfg)
-    except:
-        log.exception('Error in training loop')
-        raise
-
+    cfg.env.train_procs = 1  # Reduced to 1 as we only have one process
+    # No longer dividing these parameters by the number of learners as there is only one
+    # cfg.agent.batch_size //= cfg.distributed.num_learners
+    # cfg.agent.samples_per_update //= cfg.distributed.num_learners
+    # cfg.agent.warmup_samples //= cfg.distributed.num_learners
+    
+    # Removed try-catch block as we'll let exceptions bubble up for simplicity
+    setup = setup_training_mfdim(cfg)
+    
+    # The single process is responsible for both acting and learning, so it uses the same queue for both
+    queue = mp.Queue()
+    setup.queues = [queue]
+    
     agent = setup.agent
+
+    # Removed broadcast barrier as there's no need to synchronize a single process
+    # agent.bcast_barrier = bcast_barrier
+    # bcast_barrier.wait()
+
+    # Removed learner group as there's only one process
+    # learner_group = dist.new_group([i for i in range(cfg.distributed.num_learners)])
+    # agent.learner_group = learner_group
 
     cp_path = cfg.checkpoint_path
     if cfg.init_model_from:
@@ -906,20 +917,31 @@ def train(cfg: DictConfig):
 
     restore(setup)
 
+    # No need to broadcast parameters when there's only one process
+    # log.debug(f'broadcast params {rank}:{role}')
+    # bcast_barrier.wait()
+    # for p in setup.model.parameters():
+    #     dist.broadcast(p, src=cfg.distributed.num_learners)
+    # dist.barrier()
+    # log.debug('done')
+
     setup.eval_fn = eval_mfdim
-    agent.role = 'actor'
+
+    # Removed role assignment as there's only one process performing both roles
+    # agent.role = role
+    
+    # The single process runs both training loops
     try:
         hucc.set_checkpoint_fn(checkpoint, setup)
-        train_loop_mfdim_actor(setup)
-        log.debug(f'start leaner with queue 0')
-        train_loop_mfdim_learner(setup)
+        while True:  # Assumes that the training loops run forever until an external signal terminates them
+            train_loop_mfdim_actor(setup)
+            train_loop_mfdim_learner(setup, queue)
     except:
         log.exception('Error in training loop')
         raise
-
+    
     setup.close()
-
-
+    return transitions
 
 @hydra.main(config_path='/home/sudingli/workplace/hsd3/config')
 def main(cfg: DictConfig):
@@ -941,8 +963,42 @@ def main(cfg: DictConfig):
         'role': None,
     }
 
-    # main function for single-process:
-    train(cfg)
+    if cfg.agent.batch_size % nl != 0:
+        raise ValueError('Batch size must be multiple of num_learners')
+    if cfg.agent.samples_per_update % nl != 0:
+        raise ValueError('Samples per update must be multiple of num_learners')
+    if cfg.agent.warmup_samples % nl != 0:
+        raise ValueError('Warmup samples must be multiple of num_learners')
+    if cfg.env.train_procs % nl != 0:
+        raise ValueError('Train procs should be multiple of num_learners')
+    train_single_process(cfg)
+    # queues = [mp.Queue() for _ in range(nl)]
+    # bcast_barrier = mp.Barrier(na + nl)
+    # rank = 0
+    # #The error seems to occur due to the variable rank being incremented each time a process is created in the for loop, irrespective of the total number of available GPUs.
+    # #When you have two GPUs, the ranks assigned to the processes (0 and 1) correspond to valid GPU device IDs. However, when you only have one GPU, any rank other than 0 will lead to an invalid device ordinal error, as it refers to a non-existent GPU.
+    # for _ in range(nl):
+    #     p = mp.Process(
+    #         target=worker, args=(rank % cfg.slurm.gpus_per_task, 'learner', queues, bcast_barrier, cfg)
+    #     )
+    #     procs.append(p)
+    #     rank += 1
+    # for _ in range(na):
+    #     p = mp.Process(
+    #         target=worker, args=(rank % cfg.slurm.gpus_per_task, 'actor', queues, bcast_barrier, cfg)
+    #     )
+    #     procs.append(p)
+    #     rank += 1
+    # for p in procs:
+    #     p.start()
+    # for p in procs:
+    #     p.join()
+    # try:
+    #     os.remove(rdvu_file)
+    # except:
+    #     pass
+
+
     
 
 

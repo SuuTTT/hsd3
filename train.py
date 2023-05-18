@@ -114,6 +114,8 @@ def setup_training(cfg: DictConfig) -> TrainingSetup:
 
     model = make_model_rec(cfg.model, observation_space, action_space)
     log.info(f'Model from config:\n{model}')
+    
+    #stop=input("continue")
     model.to(cfg.device)
     optim = hucc.make_optim(cfg.optim, model)
 
@@ -147,7 +149,7 @@ def setup_training(cfg: DictConfig) -> TrainingSetup:
         hcr = HashingCountReward(gym.spaces.flatdim(no_gs_obs)).to_(cfg.device)
     else:
         hcr = None
-
+    print(cfg.device)
     return TrainingSetup(
         cfg=cfg,
         agent=agent,

@@ -25,7 +25,8 @@ init_model_from:
 checkpoint_path: checkpoint-lo.pt
 
 eval:
-  episodes_per_task: 50
+  # reduced
+  episodes_per_task: 1
   interval: 100000
   video:
     record_all: false
