@@ -20,13 +20,12 @@ eval_mode: reachability
 max_steps: 5e7
 combine_after_steps: 0
 backprop_fallover: false
-estimate_joint_spaces: null
+estimate_joint_spaces: hac
 init_model_from:
-checkpoint_path: checkpoint-lo.pt
+checkpoint_path: checkpoint-lo-hac.pt
 
 eval:
-  # reduced
-  episodes_per_task: 1
+  episodes_per_task: 50
   interval: 100000
   video:
     record_all: false
@@ -39,8 +38,7 @@ distributed:
   rdvu_path: /tmp
 
 slurm:
-  # for server 3
-  gpus_per_task: 1
+  gpus_per_task: 2
   cpus_per_task: ${env.train_procs}
 
 visdom:

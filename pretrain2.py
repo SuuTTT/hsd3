@@ -83,13 +83,15 @@ def estimate_ctrlb(setup: TrainingSetup) -> Dict[str, Dict[str, float]]:
         * setup.envs.action_space.shape[0]
     )
 
-    n = 1024
+    n = 10
     cperf: Dict[str, Dict[str, float]] = {'q': {}, 'r': {}}
     starts = th.where(buffer._b['start_state'] == True)[0]
     for d in setup.goal_dims.keys():
         #  Query start states from replay buffer
         idx = th.randint(low=0, high=starts.shape[0], size=(n,))
         obs = buffer._b['obs_observation'][starts[idx]].to(cfg.device)
+        gss = buffer._b['gs_observation'][starts[idx]].to(cfg.device)
+        # gss -> desired_goal
 
         # Sample goals and project to input space
         # XXX assumes we train with backprojecting goals
@@ -113,6 +115,25 @@ def estimate_ctrlb(setup: TrainingSetup) -> Dict[str, Dict[str, float]]:
             wgoal = th.tensor(
                 clf.sample(n)[0].clip(-1, 1),
                 device=obs.device,
+                dtype=th.float32,
+            )
+        elif len(feats) > 1 and cfg.estimate_joint_spaces == 'hac':  # New elif for Hierarchical Agglomerative Clustering
+            sidx = th.randint(low=0, high=buffer.size, size=(n * 10,))
+            sample = (
+                th.bmm(
+                    buffer._b['gs_observation'][sidx].unsqueeze(1),
+                    psi[feats]
+                    .T.unsqueeze(0)
+                    .expand(sidx.shape[0], gsdim, len(feats)),
+                ).squeeze(1)
+                + offset[feats]
+            )
+            from sklearn.cluster import AgglomerativeClustering
+            hac = AgglomerativeClustering(n_clusters=n)
+            hac.fit(sample.cpu())
+            wgoal = th.tensor(
+                hac.labels_.clip(-1, 1),
+                device=gss.device,
                 dtype=th.float32,
             )
         elif len(feats) > 1 and cfg.estimate_joint_spaces == 'kmeans':
@@ -160,7 +181,6 @@ def estimate_ctrlb(setup: TrainingSetup) -> Dict[str, Dict[str, float]]:
             feature_mask[setup.task_map[f]] = 1
         goal = (gb - s) * feature_mask
 
-        # Record distances in goal space
         wobs = (
             th.bmm(
                 gsobs.unsqueeze(1),

@@ -83,7 +83,7 @@ def estimate_ctrlb(setup: TrainingSetup) -> Dict[str, Dict[str, float]]:
         * setup.envs.action_space.shape[0]
     )
 
-    n = 1024
+    n = 10
     cperf: Dict[str, Dict[str, float]] = {'q': {}, 'r': {}}
     starts = th.where(buffer._b['start_state'] == True)[0]
     for d in setup.goal_dims.keys():
