@@ -12,3 +12,4 @@ runs/
 *.json
 .dumbo.json
 outputs/
+*.out

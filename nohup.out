@@ -386,3 +386,21 @@ Traceback (most recent call last):
   File "/home/ubuntu/miniconda3/envs/hsd3/lib/python3.8/multiprocessing/connection.py", line 379, in _recv
     chunk = read(handle, remaining)
 KeyboardInterrupt
+/home/sudingli/workplace/hsd3/train.py:537: UserWarning: 
+The version_base parameter is not specified.
+Please specify a compatability version level, or None.
+Will assume defaults for version 1.1
+  @hydra.main(config_path='config')
+pretrain.py:924: UserWarning: 
+The version_base parameter is not specified.
+Please specify a compatability version level, or None.
+Will assume defaults for version 1.1
+  @hydra.main(config_path='/home/sudingli/workplace/hsd3/config')
+Cannot find primary config 'walker_pretrain0520@1153.out'. Check that it's in your config search path.
+
+Config search path:
+	provider=hydra, path=pkg://hydra.conf
+	provider=main, path=file:///home/sudingli/workplace/hsd3/config
+	provider=schema, path=structured://
+
+Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.

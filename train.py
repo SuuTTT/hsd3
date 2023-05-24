@@ -372,6 +372,9 @@ def train_loop(setup: TrainingSetup):
                 log.debug(
                     f'Checkpointing to {cp_path} after {setup.n_samples} samples'
                 )
+                dir_name = os.path.dirname(cp_path)
+                if not os.path.exists(dir_name):
+                    os.makedirs(dir_name)
                 with open(cp_path, 'wb') as f:
                     agent.save_checkpoint(f)
                 if cfg.keep_all_checkpoints:

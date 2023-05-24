@@ -83,9 +83,11 @@ def estimate_ctrlb(setup: TrainingSetup) -> Dict[str, Dict[str, float]]:
         * setup.envs.action_space.shape[0]
     )
 
-    n = 10
+    n = 64
     cperf: Dict[str, Dict[str, float]] = {'q': {}, 'r': {}}
     starts = th.where(buffer._b['start_state'] == True)[0]
+    from sklearn.mixture import GaussianMixture
+    from sklearn.cluster import AgglomerativeClustering, KMeans
     for d in setup.goal_dims.keys():
         #  Query start states from replay buffer
         idx = th.randint(low=0, high=starts.shape[0], size=(n,))
@@ -117,7 +119,7 @@ def estimate_ctrlb(setup: TrainingSetup) -> Dict[str, Dict[str, float]]:
                 device=obs.device,
                 dtype=th.float32,
             )
-        elif len(feats) > 1 and cfg.estimate_joint_spaces == 'hac':  # New elif for Hierarchical Agglomerative Clustering
+        elif len(feats) > 1 and cfg.estimate_joint_spaces == 'sep':
             sidx = th.randint(low=0, high=buffer.size, size=(n * 10,))
             sample = (
                 th.bmm(
@@ -128,14 +130,90 @@ def estimate_ctrlb(setup: TrainingSetup) -> Dict[str, Dict[str, float]]:
                 ).squeeze(1)
                 + offset[feats]
             )
-            from sklearn.cluster import AgglomerativeClustering
-            hac = AgglomerativeClustering(n_clusters=n)
-            hac.fit(sample.cpu())
+            sample_np = sample.cpu().numpy()
+            from SEP import PartitionTree,calculate_adj_matrix
+            import random
+            # Create a similarity graph
+            similarity_graph = calculate_adj_matrix(sample_np)
+            
+            # Perform custom clustering using the partition tree
+            y = PartitionTree(adj_matrix=similarity_graph)
+            y.build_coding_tree(2)
+            
+            # Compute cluster centroids
+            centroids = []
+            for node in y.tree_node.values():
+                if node.children is not None:  # ignore leaf nodes
+                    try:
+                        cluster_points = sample_np[node.partition]
+                        centroids.append(np.mean(cluster_points, axis=0))
+                    except IndexError as e:
+                        print("Error: ", e)
+                        print("node.partition: ", node.partition)
+                        print("Size of sample_np: ", len(sample_np))
+                        valid_partition_indices = [i for i in node.partition if i < len(sample_np)]
+                        if valid_partition_indices:  # proceed only if there are valid indices
+                            cluster_points = sample_np[valid_partition_indices]
+                            centroids.append(np.mean(cluster_points, axis=0))
+                            
+                        # write the data to a file
+                        from datetime import datetime
+                        import glob
+                        existing_files = glob.glob('error_data_*')
+                        if not existing_files: 
+                            with open(f'error_data_{datetime.now().strftime("%Y%m%d_%H%M%S")}.txt', 'w') as f:
+                                f.write(f"Error: {e}\n")
+                                f.write(f"node.partition: {node.partition}\n")
+                                f.write(f"Size of sample_np: {len(sample_np)}\n")
+                                f.write(f"sample_np: {sample_np}\n")
+                                f.write(f"similarity_graph: {similarity_graph}\n")
+
+            # Select n centroids
+            if len(centroids) > n:
+                centroids = random.sample(centroids, n)  # select n centroids randomly
+            elif len(centroids) < n:
+                while len(centroids) < n:
+                    centroids.append(np.random.rand(len(feats)))  # add random centroids if necessary
+
+            centroids = np.array(centroids)  # it already has n centroids
+
             wgoal = th.tensor(
-                hac.labels_.clip(-1, 1),
-                device=gss.device,
+                centroids.clip(-1, 1),
+                device=obs.device,
                 dtype=th.float32,
             )
+
+
+        elif len(feats) > 1 and cfg.estimate_joint_spaces == 'hac':
+            sidx = th.randint(low=0, high=buffer.size, size=(n * 10,))
+            sample = (
+                th.bmm(
+                    buffer._b['gs_observation'][sidx].unsqueeze(1),
+                    psi[feats]
+                    .T.unsqueeze(0)
+                    .expand(sidx.shape[0], gsdim, len(feats)),
+                ).squeeze(1)
+                + offset[feats]
+            )
+            sample_np = sample.cpu().numpy()
+            from sklearn.cluster import AgglomerativeClustering
+            clf = AgglomerativeClustering(n_clusters=n)
+            clf.fit(sample_np)
+
+            # Create a placeholder for the centroids
+            centroids = np.empty((n, len(feats)))
+
+            # Compute the centroids manually
+            for i in range(n):
+                cluster_points = sample_np[clf.labels_ == i]
+                centroids[i] = np.mean(cluster_points, axis=0)
+
+            wgoal = th.tensor(
+                centroids.clip(-1, 1),
+                device=obs.device,
+                dtype=th.float32,
+            )
+
         elif len(feats) > 1 and cfg.estimate_joint_spaces == 'kmeans':
             sidx = th.randint(low=0, high=buffer.size, size=(n * 10,))
             sample = (
